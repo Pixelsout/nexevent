@@ -1,15 +1,20 @@
 # Self-Pruning Neural Network
 ### Tredence AI Engineering Internship — Case Study Submission
 
-A feed-forward neural network that **learns to prune itself during training** using learnable sigmoid gates and L1 sparsity regularization. The network dynamically identifies and removes its own weakest connections — no post-training pruning step, no manual threshold tuning.
+A feed-forward neural network that learns to prune itself during training using learnable sigmoid gates and L1 sparsity regularization. The network dynamically identifies and removes its own weakest connections no post-training pruning step, no manual threshold tuning.
+
+---
+> 🔗 **Related Work:** [Damage-Guided Adaptive Recovery for Efficient Neural Network Pruning](https://github.com/Pixelsout/Damage-Guided-Adaptive-Recovery-for-Efficient-Neural-Network-Pruning) original independent research on post-training pruning with intelligent recovery.
+
+---
 
 ---
 
 ## The Core Idea
 
-Standard pruning removes weights **after** training. This implementation goes further — the network **learns which weights are unnecessary while it trains**.
+Standard pruning removes weights after training. This implementation goes further — the network learns which weights are unnecessary while it trains.
 
-Every weight `w_ij` has a paired learnable **gate score** `s_ij` of the same shape. During each forward pass:
+Every weight `w_ij` has a paired learnable gate score`s_ij` of the same shape. During each forward pass:
 
 ```
 gates         = sigmoid(gate_scores)       # squash to (0, 1)
@@ -35,7 +40,7 @@ The gradient of the sparsity term w.r.t gate score `sᵢ`:
 ∂L_sparsity / ∂sᵢ = λ × σ(sᵢ) × (1 − σ(sᵢ))
 ```
 
-This gradient is **non-vanishing** even when `sᵢ` is very negative (gate near 0). The optimizer always has a signal pulling gates all the way to exactly zero.
+This gradient is non-vanishing even when `sᵢ` is very negative (gate near 0). The optimizer always has a signal pulling gates all the way to exactly zero.
 
 L2 by contrast gives gradient `∝ σ(sᵢ)`, which vanishes near zero — weights get small but never exactly zero. This is the classic **Lasso (L1) = sparse vs Ridge (L2) = dense** result applied to gate parameters.
 
@@ -58,7 +63,7 @@ Training a 4-layer MLP (3072 → 1024 → 512 → 256 → 10) on CIFAR-10 for 40
 ## Visualizations
 
 ### Gate Value Distribution
-The bimodal distribution confirms the pruning mechanism is working — a large spike at 0 (pruned weights) and a cluster near 1 (important surviving weights). Gates are binary in behavior, not uniformly distributed.
+The bimodal distribution confirms the pruning mechanism is working a large spike at 0 (pruned weights) and a cluster near 1 (important surviving weights). Gates are binary in behavior, not uniformly distributed.
 
 ![Gate Distributions](gate_distributions.png)
 
@@ -68,17 +73,17 @@ Sparsity grows rapidly in early epochs as gates collapse, then stabilizes. Highe
 ![Training Curves](training_curves.png)
 
 ### Per-Layer Sparsity
-Earlier layers (FC1) prune more aggressively than the output layer (FC4). This is expected — early layers learn general features where many connections are redundant. The output layer retains more connections as each directly contributes to class discrimination.
+Earlier layers (FC1) prune more aggressively than the output layer (FC4). This is expected early layers learn general features where many connections are redundant. The output layer retains more connections as each directly contributes to class discrimination.
 
 ![Per-Layer Sparsity](per_layer_sparsity.png)
 
 ### Gate Heatmaps
-Purple = pruned gate (≈0), Yellow = active gate (≈1). The structured sparsity pattern shows the network has learned which specific input-output connections matter — not random pruning.
+Purple = pruned gate (≈0), Yellow = active gate (≈1). The structured sparsity pattern shows the network has learned which specific input-output connections matter not random pruning.
 
 ![Gate Heatmaps](gate_heatmaps.png)
 
 ### Accuracy vs Sparsity Trade-off
-Clear negative correlation between sparsity and accuracy — higher λ produces sparser networks at a small accuracy cost.
+Clear negative correlation between sparsity and accuracy higher λ produces sparser networks at a small accuracy cost.
 
 ![Accuracy vs Sparsity](accuracy_vs_sparsity.png)
 
@@ -86,7 +91,7 @@ Clear negative correlation between sparsity and accuracy — higher λ produces 
 
 ## Implementation Details
 
-### PrunableLinear — Custom Gated Layer
+### PrunableLinear Custom Gated Layer
 
 ```python
 class PrunableLinear(nn.Module):
@@ -102,7 +107,7 @@ class PrunableLinear(nn.Module):
         return F.linear(x, pruned_weight, self.bias)
 ```
 
-Gradients flow through both `weight` and `gate_scores` automatically via PyTorch autograd — no custom backward pass needed.
+Gradients flow through both `weight` and `gate_scores` automatically via PyTorch autograd no custom backward pass needed.
 
 ### Two Design Choices Worth Noting
 
@@ -113,7 +118,7 @@ optimizer = optim.Adam([
     {"params": gate_params,   "weight_decay": 0.0,  "lr": 5e-1},
 ])
 ```
-Gate scores need a higher learning rate to move fast enough relative to the slow-changing weights. Weight decay is intentionally disabled for gates — it would fight the sparsity loss and prevent gates from reaching zero.
+Gate scores need a higher learning rate to move fast enough relative to the slow-changing weights. Weight decay is intentionally disabled for gates it would fight the sparsity loss and prevent gates from reaching zero.
 
 **2. Normalized sparsity loss:**
 ```python
